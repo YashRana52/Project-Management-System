@@ -8,7 +8,7 @@ import {
   FileCode,
   FileSpreadsheet,
   FileText,
-  File as fileIcon,
+  File as FileIcon,
   FilePlus,
 } from "lucide-react";
 
@@ -45,7 +45,7 @@ const UploadFiles = () => {
       case "rar":
         return <FileArchive className="w-8 h-8 text-yellow-500" />;
       default:
-        return <fileIcon className="w-8 h-8 text-slate-500" />;
+        return <FileIcon className="w-8 h-8 text-slate-500" />;
     }
   };
 
@@ -99,7 +99,7 @@ const UploadFiles = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <UploadBox
             title="Report"
             desc="PDF, DOC"
@@ -127,7 +127,7 @@ const UploadFiles = () => {
           <UploadBox
             title="Images"
             desc="JPG, PNG, JPEG"
-            icon={<File className="w-10 h-10 text-slate-500" />}
+            icon={<FileIcon className="w-10 h-10 text-slate-500" />}
             accept=".jpg,.jpeg,.png,.webp"
             onChange={handleFilePick}
           />
