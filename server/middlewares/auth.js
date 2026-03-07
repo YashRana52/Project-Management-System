@@ -4,15 +4,14 @@ import ErrorHandler from "./error.js";
 import User from "../models/user.js";
 
 export const protect = asyncHandler(async (req, res, next) => {
-
   let token;
 
-  // 1️⃣ Cookie se token
+  // cookie token
   if (req.cookies?.token) {
     token = req.cookies.token;
   }
 
-  // 2️⃣ Authorization header se token
+  // bearer token
   if (!token && req.headers.authorization?.startsWith("Bearer")) {
     token = req.headers.authorization.split(" ")[1];
   }
@@ -40,3 +39,17 @@ export const protect = asyncHandler(async (req, res, next) => {
   req.user = user;
   next();
 });
+
+export const isAuthorized = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new ErrorHandler(
+          `Role ${req.user.role} is not allowed to access this resource`,
+          403
+        )
+      );
+    }
+    next();
+  };
+};
