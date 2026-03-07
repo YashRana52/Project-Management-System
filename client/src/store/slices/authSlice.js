@@ -110,6 +110,7 @@ const authSlice = createSlice({
 
       .addCase(logout.fulfilled, (state) => {
         state.authUser = null;
+         localStorage.removeItem("token");
       })
       .addCase(logout.rejected, (state) => {
         state.authUser;
