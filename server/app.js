@@ -16,11 +16,14 @@ const app = express();
 // CORS
 app.use(
   cors({
-    origin: [process.env.FRONTEND_URL],
+    origin: "https://project-management-system-client-omega.vercel.app",
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  }),
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
 );
+
+app.options("*", cors());
 
 // Middlewares
 app.use(cookieParser());
