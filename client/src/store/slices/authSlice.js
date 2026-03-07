@@ -8,15 +8,15 @@ export const login = createAsyncThunk("login", async (data, thunkAPI) => {
       headers: { "Content-Type": "application/json" },
     });
 
-    // 🔑 token save karo
     localStorage.setItem("token", res.data.token);
 
     toast.success(res.data.message);
 
     return res.data.user;
   } catch (error) {
-    toast.error(error.response?.data?.message || "Login failed");
-    return thunkAPI.rejectWithValue(error.response?.data?.message);
+    console.log("LOGIN ERROR:", error);
+    toast.error(error?.response?.data?.message || "Login failed");
+    return thunkAPI.rejectWithValue(error?.response?.data?.message);
   }
 });
 export const forgotPassword = createAsyncThunk(
