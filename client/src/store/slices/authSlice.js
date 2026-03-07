@@ -7,11 +7,16 @@ export const login = createAsyncThunk("login", async (data, thunkAPI) => {
     const res = await axiosInstance.post("/auth/login", data, {
       headers: { "Content-Type": "application/json" },
     });
+
+    // 🔑 token save karo
+    localStorage.setItem("token", res.data.token);
+
     toast.success(res.data.message);
+
     return res.data.user;
   } catch (error) {
-    toast.error(error.response.data.message);
-    return thunkAPI.rejectWithValue(error.response.data.message);
+    toast.error(error.response?.data?.message || "Login failed");
+    return thunkAPI.rejectWithValue(error.response?.data?.message);
   }
 });
 export const forgotPassword = createAsyncThunk(
