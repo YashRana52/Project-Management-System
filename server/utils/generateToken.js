@@ -31,7 +31,7 @@ export const generateToken = (user, statusCode, message, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: "project-management-system-one-gamma.vercel.app"
+      path: "/",
     })
     .json({
       success: true,
