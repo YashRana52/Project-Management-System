@@ -4,13 +4,24 @@ import ErrorHandler from "./error.js";
 import User from "../models/user.js";
 
 export const protect = asyncHandler(async (req, res, next) => {
-  const token = req.cookies?.token;
+  let token;
+
+  // cookie token
+  if (req.cookies?.token) {
+    token = req.cookies.token;
+  }
+
+  // bearer token
+  if (!token && req.headers.authorization?.startsWith("Bearer")) {
+    token = req.headers.authorization.split(" ")[1];
+  }
 
   if (!token) {
     return next(new ErrorHandler("Not authorized, token missing", 401));
   }
 
   let decoded;
+
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch (error) {
@@ -18,7 +29,7 @@ export const protect = asyncHandler(async (req, res, next) => {
   }
 
   const user = await User.findById(decoded.id).select(
-    "-resetPasswordToken -resetPasswordExpire",
+    "-resetPasswordToken -resetPasswordExpire"
   );
 
   if (!user) {
@@ -35,8 +46,8 @@ export const isAuthorized = (...roles) => {
       return next(
         new ErrorHandler(
           `Role ${req.user.role} is not allowed to access this resource`,
-          403,
-        ),
+          403
+        )
       );
     }
     next();
