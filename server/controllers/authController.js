@@ -6,27 +6,28 @@ import { generateForgotPasswordEmailTemplate } from "../utils/emailTemplates.js"
 import { generateToken } from "../utils/generateToken.js";
 import crypto from "crypto";
 
-// Register User
-export const registerUser = asyncHandler(async (req, res, next) => {
-  const { name, email, password, role } = req.body;
-  if (!name || !email || !password || !role) {
-    return next(new ErrorHandler("Please provide all required field", 400));
-  }
+// Register User (ye public route nhi rkhna h )
 
-  let user = await User.findOne({ email });
-  if (user) {
-    return next(new ErrorHandler("user already exists", 400));
-  }
+// export const registerUser = asyncHandler(async (req, res, next) => {
+//   const { name, email, password, role } = req.body;
+//   if (!name || !email || !password || !role) {
+//     return next(new ErrorHandler("Please provide all required field", 400));
+//   }
 
-  user = await User.create({
-    name,
-    email,
-    role,
-    password,
-  });
+//   let user = await User.findOne({ email });
+//   if (user) {
+//     return next(new ErrorHandler("user already exists", 400));
+//   }
 
-  generateToken(user, 201, "user register successfully", res);
-});
+//   user = await User.create({
+//     name,
+//     email,
+//     role,
+//     password,
+//   });
+
+//   generateToken(user, 201, "user register successfully", res);
+// });
 
 // login User
 export const loginUser = asyncHandler(async (req, res, next) => {

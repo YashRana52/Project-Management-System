@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { fetchProject, uploadFiles } from "../../store/slices/studentSlice";
+import { fetchProject, uploadFiles, downloadFile, } from "../../store/slices/studentSlice";
 import {
   Archive,
   FileArchive,
@@ -66,27 +66,39 @@ const UploadFiles = () => {
     setSelectedFiles([]);
   };
 
-  const handleDownloadFile = (file) => {
-    if (!file?.fileUrl) {
-      toast.error("File URL not found");
-      return;
-    }
+  const handleDownloadFile =
+    async (file) => {
+      if (
+        !project?._id ||
+        !file?._id
+      ) {
+        toast.error(
+          "Project or file information is missing",
+        );
 
-    const downloadUrl = file.fileUrl.includes("/upload/")
-      ? file.fileUrl.replace("/upload/", "/upload/fl_attachment/")
-      : file.fileUrl;
+        return;
+      }
 
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = file.originalName || "file";
-    link.target = "_blank";
+      try {
+        await dispatch(
+          downloadFile({
+            projectId: project._id,
+            fileId: file._id,
+            originalName:
+              file.originalName,
+          }),
+        ).unwrap();
 
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast.success("Download started");
-  };
+        toast.success(
+          "Download started",
+        );
+      } catch (error) {
+        toast.error(
+          error ||
+          "Failed to download file",
+        );
+      }
+    };
 
   return (
     <div className="space-y-6">

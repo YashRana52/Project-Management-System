@@ -1,44 +1,135 @@
+import path from "path";
 import { asyncHandler } from "../middlewares/asyncHandler.js";
 import ErrorHandler from "../middlewares/error.js";
-import * as userServices from "../services/userServices.js";
+
 import * as projectServices from "../services/projectServices.js";
+import * as fileServices from "../services/fileServices.js";
 
-export const downloadFile = asyncHandler(async (req, res, next) => {
-  const { projectId, fileId } = req.params;
-  const user = req.user;
+const PREVIEWABLE_EXTENSIONS =
+  new Set([
+    ".pdf",
 
-  const project = await projectServices.getProjectById(projectId);
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+  ]);
 
-  if (!project) {
-    return next(new ErrorHandler("Project not found", 404));
-  }
 
-  const userRole = (user.role || "").toLowerCase();
-  const userId = user._id?.toString() || user.id;
+const getAuthorizedProjectFile = async ({
+  projectId,
+  fileId,
+  currentUser,
+}) => {
+  const project =
+    await projectServices
+      .getProjectById(
+        projectId,
+      );
+
+  const currentUserId =
+    currentUser._id.toString();
+
+  const isAdmin =
+    currentUser.role === "Admin";
+
+  const isProjectStudent =
+    project.student?._id
+      ?.toString() ===
+    currentUserId;
+
+  const isAssignedSupervisor =
+    project.supervisor?._id
+      ?.toString() ===
+    currentUserId;
 
   const hasAccess =
-    userRole === "admin" ||
-    project.student._id.toString() === userId ||
-    (project.supervisor && project.supervisor._id.toString() === userId);
+    isAdmin ||
+    isProjectStudent ||
+    isAssignedSupervisor;
 
-  if (project.student.toString() !== studentId.toString()) {
-    return next(new ErrorHandler("Not authorized to download this file", 403));
-  }
   if (!hasAccess) {
-    return next(
-      new ErrorHandler(
-        "Not authorised to download files from this projects.",
-        403,
-      ),
+    throw new ErrorHandler(
+      "You are not authorized to access files from this project",
+      403,
     );
   }
 
-  const file = project.files.id(fileId);
+  const file =
+    project.files.id(fileId);
 
   if (!file) {
-    return next(new ErrorHandler("File not found", 404));
+    throw new ErrorHandler(
+      "File not found",
+      404,
+    );
   }
 
-  //Stream download
-  fileServices.streamDownload(file.fileUrl, res, file.originalName);
-});
+  return file;
+};
+
+export const downloadFile = asyncHandler(
+  async (req, res) => {
+    const {
+      projectId,
+      fileId,
+    } = req.params;
+
+    const file =
+      await getAuthorizedProjectFile({
+        projectId,
+        fileId,
+        currentUser: req.user,
+      });
+
+    return fileServices
+      .streamDownload(
+        file.fileUrl,
+        res,
+        file.originalName,
+      );
+  },
+);
+
+
+// preview
+export const previewFile = asyncHandler(async (req, res) => {
+  const {
+    projectId,
+    fileId,
+  } = req.params;
+
+  const file =
+    await getAuthorizedProjectFile({
+      projectId,
+      fileId,
+      currentUser: req.user,
+    });
+
+  const extension =
+    path
+      .extname(
+        file.originalName,
+      )
+      .toLowerCase();
+
+  if (
+    !PREVIEWABLE_EXTENSIONS.has(
+      extension,
+    )
+  ) {
+    throw new ErrorHandler(
+      "Preview is available only for PDF and image files",
+      415,
+    );
+  }
+
+  return fileServices
+    .streamPreview(
+      file.fileUrl,
+      res,
+      file.originalName,
+    );
+},
+);

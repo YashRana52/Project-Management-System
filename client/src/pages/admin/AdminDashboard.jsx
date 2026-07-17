@@ -32,6 +32,9 @@ import {
   toggleStudentModal,
   toggleTeacherModal,
 } from "../../store/slices/popupSlice";
+import {
+  downloadProjectFile,
+} from "../../store/thunks/fileThunks";
 
 const BAR_COLORS = ["#1E3ABA", "#2563EB", "#3BB2F6", "#60A5FA", "#93C5FD"];
 
@@ -47,6 +50,10 @@ const AdminDashboard = () => {
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportSearch, setReportSearch] = useState("");
+  const [
+    downloadingFileKey,
+    setDownloadingFileKey,
+  ] = useState(null);
 
   useEffect(() => {
     dispatch(getDashboardData());
@@ -66,15 +73,30 @@ const AdminDashboard = () => {
   }, [projects]);
 
   const files = useMemo(() => {
-    return (projects || []).flatMap((p) =>
-      (p.files || []).map((f) => ({
-        projectId: p._id,
-        originalName: f.originalName,
-        uploadedAt: f.uploadedAt,
-        fileUrl: f.fileUrl,
-        projectTitle: p.title,
-        studentName: p.student.name,
-      })),
+    return (projects || []).flatMap(
+      (project) =>
+        (project.files || []).map(
+          (file) => ({
+            projectId:
+              project._id,
+
+            fileId:
+              file._id,
+
+            originalName:
+              file.originalName,
+
+            uploadedAt:
+              file.uploadedAt,
+
+            projectTitle:
+              project.title,
+
+            studentName:
+              project.student?.name ||
+              "Unknown student",
+          }),
+        ),
     );
   }, [projects]);
 
@@ -89,27 +111,60 @@ const AdminDashboard = () => {
       (f.studentName || "").toLowerCase().includes(reportSearch.toLowerCase()),
   );
 
-  const handleDownloadFile = (file) => {
-    console.log("Downloading file:", file);
-    const fileUrl = file?.fileUrl || file?.url;
+  const handleDownloadFile =
+    async (file) => {
+      const projectId =
+        file?.projectId;
 
-    if (!fileUrl) {
-      toast.error("File URL not found");
-      return;
-    }
+      const fileId =
+        file?.fileId;
 
-    const downloadUrl = fileUrl.includes("/upload/")
-      ? fileUrl.replace("/upload/", "/upload/fl_attachment/")
-      : fileUrl;
+      if (!projectId || !fileId) {
+        toast.error(
+          "Project or file information is missing",
+        );
 
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = file.originalName || "file";
+        return;
+      }
 
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+      const downloadKey =
+        `${projectId}:${fileId}`;
+
+      if (
+        downloadingFileKey ===
+        downloadKey
+      ) {
+        return;
+      }
+
+      setDownloadingFileKey(
+        downloadKey,
+      );
+
+      try {
+        await dispatch(
+          downloadProjectFile({
+            projectId,
+            fileId,
+
+            originalName:
+              file.originalName,
+          }),
+        ).unwrap();
+
+        toast.success(
+          "Download started",
+        );
+      } catch (error) {
+        toast.error(
+          typeof error === "string"
+            ? error
+            : "Failed to download file",
+        );
+      } finally {
+        setDownloadingFileKey(null);
+      }
+    };
 
   const supervisorBucket = useMemo(() => {
     const map = new Map();
@@ -438,10 +493,10 @@ const AdminDashboard = () => {
                   <div>No files found</div>
                 ) : (
                   <div className="space-y-2">
-                    {filterFiles.map((f, i) => {
+                    {filterFiles.map((file) => {
                       return (
                         <div
-                          key={i}
+                          key={`${file.projectId}-${file.fileId}`}
                           className="flex items-center justify-between p-3 bg-slate-50 rounded"
                         >
                           <div>
@@ -454,10 +509,23 @@ const AdminDashboard = () => {
                           </div>
 
                           <button
-                            className="btn-outline btn-small"
-                            onClick={() => handleDownloadFile(f)}
+                            disabled={
+                              downloadingFileKey ===
+                              `${file.projectId}:${file.fileId}`
+                            }
+                            className={`btn-outline btn-small ${downloadingFileKey ===
+                                `${file.projectId}:${file.fileId}`
+                                ? "opacity-50 cursor-not-allowed"
+                                : ""
+                              }`}
+                            onClick={() =>
+                              handleDownloadFile(file)
+                            }
                           >
-                            Download
+                            {downloadingFileKey ===
+                              `${file.projectId}:${file.fileId}`
+                              ? "Downloading..."
+                              : "Download"}
                           </button>
                         </div>
                       );

@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { axiosInstance } from "../../lib/axios";
 import { toast } from "react-toastify";
 
+
 export const getTeacherDashboardStats = createAsyncThunk(
   "getTeacherDashboardStats",
   async (_, thunkAPI) => {
@@ -25,22 +26,32 @@ export const getTeacherDashboardStats = createAsyncThunk(
     }
   },
 );
+
+// get request
 export const getRequests = createAsyncThunk(
   "requests/getRequests",
-  async (supervisorId, thunkAPI) => {
+
+  async (_, thunkAPI) => {
     try {
-      const res = await axiosInstance.get(
-        `teacher/requests?supervisor=${supervisorId}`,
-      );
+      const res =
+        await axiosInstance.get(
+          "teacher/requests",
+        );
 
       return res.data.data.requests;
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to fetch requests");
-      return thunkAPI.rejectWithValue(error.response?.data?.message);
+      const message =
+        error.response?.data?.message ||
+        "Failed to fetch requests";
+
+      toast.error(message);
+
+      return thunkAPI.rejectWithValue(
+        message,
+      );
     }
   },
 );
-
 export const acceptRequest = createAsyncThunk(
   "requests/acceptRequest",
   async (requestId, thunkAPI) => {
@@ -56,7 +67,6 @@ export const acceptRequest = createAsyncThunk(
     }
   },
 );
-
 export const rejectRequest = createAsyncThunk(
   "requests/rejectRequest",
   async (requestId, thunkAPI) => {
@@ -168,11 +178,35 @@ const teacherSlice = createSlice({
     });
 
     builder.addCase(addFeedback.fulfilled, (state, action) => {
-      const { projectId, feedback } = action.payload;
-      state.assignedStudents = state.assignedStudents.ma((s) =>
-        s.projectId === projectId ? { ...s, feedback } : s,
-      );
-    });
+      const {
+        projectId,
+        feedback,
+      } = action.payload;
+
+      state.assignedStudents =
+        state.assignedStudents.map(
+          (student) => {
+            if (
+              student.project?._id !==
+              projectId
+            ) {
+              return student;
+            }
+
+            return {
+              ...student,
+
+              project: {
+                ...student.project,
+
+                latestFeedback:
+                  feedback,
+              },
+            };
+          },
+        );
+    },
+    );
     builder.addCase(markComplete.fulfilled, (state, action) => {
       const { projectId } = action.payload;
       state.assignedStudents = state.assignedStudents.map((s) => {

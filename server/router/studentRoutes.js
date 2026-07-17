@@ -3,7 +3,7 @@ import express from "express";
 import { isAuthorized, protect } from "../middlewares/auth.js";
 import { upload } from "../middlewares/upload.js";
 import {
-  downloadFile,
+
   getAvailableSuperVisors,
   getDashboardStats,
   getFeedback,
@@ -67,11 +67,6 @@ studentRouter.get(
   isAuthorized("Student"),
   getDashboardStats,
 );
-studentRouter.get(
-  "/download/:projectId/:field",
-  protect,
-  isAuthorized("Student"),
-  downloadFile,
-);
+
 
 export default studentRouter;

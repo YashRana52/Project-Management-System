@@ -95,17 +95,17 @@ const AssignedStudents = () => {
 
   const sortedStudents = Array.isArray(assignedStudents)
     ? [...assignedStudents].sort((a, b) => {
-        switch (sortBy) {
-          case "name":
-            return a.name.localeCompare(b.name);
-          case "lastActivity":
-            return (
-              new Date(b.project?.updatedAt) - new Date(a.project?.updatedAt)
-            );
-          default:
-            return 0;
-        }
-      })
+      switch (sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "lastActivity":
+          return (
+            new Date(b.project?.updatedAt) - new Date(a.project?.updatedAt)
+          );
+        default:
+          return 0;
+      }
+    })
     : [];
 
   const stats = [
@@ -252,15 +252,14 @@ const AssignedStudents = () => {
               {/* Action */}
               <div className="flex gap-3">
                 <button
-                  disabled={student.project?.status === "completed"}
+                  disabled={student.project?.status !== "approved"}
                   onClick={() => handleFeedback(student)}
                   className={`flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition
     active:scale-95
-    ${
-      student.project?.status === "completed"
-        ? "bg-blue-300 text-white opacity-60 cursor-not-allowed"
-        : "bg-blue-600 text-white hover:bg-blue-700"
-    }
+    ${student.project?.status !== "approved"
+                      ? "bg-blue-300 text-white opacity-60 cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                    }
   `}
                 >
                   <MessageSquare className="w-4 h-4" />
@@ -268,14 +267,13 @@ const AssignedStudents = () => {
                 </button>
 
                 <button
-                  disabled={student.project?.status === "completed"}
+                  disabled={student.project?.status !== "approved"}
                   onClick={() => handleMarkComplete(student)}
                   className={`flex items-center justify-center active:scale-95 gap-2 px-4 py-2 bg-green-600 text-white text-sm rounded-lg transition
-    ${
-      student.project?.status === "completed"
-        ? "opacity-50 cursor-not-allowed"
-        : "hover:bg-green-700"
-    }`}
+    ${student.project?.status !== "approved"
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:bg-green-700"
+                    }`}
                 >
                   <CheckCircle className="w-4 h-4" />
                   Mark Complete

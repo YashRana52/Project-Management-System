@@ -7,14 +7,17 @@ import User from "../models/user.js";
 import { Project } from "../models/project.js";
 import { SupervisorRequest } from "../models/superwiserRequest.js";
 import * as notificationServices from "../services/notificationServices.js";
-
+import {
+  buildSafeProjectList,
+  buildSafeProjectResponse,
+} from "../utils/projectResponse.js";
 //create students
 export const createStudent = asyncHandler(async (req, res, next) => {
   const { name, email, password, department } = req.body;
-  console.log(name, email, password, department);
+
 
   if (!name || !email || !password || !department) {
-    return next(new ErrorHandler("Please provide all required details"));
+    return next(new ErrorHandler("Please provide all required details", 400));
   }
   const user = await userServices.createUser({
     name,
@@ -90,7 +93,7 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
     !maxStudents ||
     !experties
   ) {
-    return next(new ErrorHandler("Please provide all required details"));
+    return next(new ErrorHandler("Please provide all required details", 400));
   }
   const user = await userServices.createUser({
     name,
@@ -169,15 +172,30 @@ export const getAllUsers = asyncHandler(async (req, res, next) => {
 });
 
 //get all projects
-export const getAllProjects = asyncHandler(async (req, res, next) => {
-  const projects = await projectServices.getAllProjects();
+export const getAllProjects = asyncHandler(
+  async (req, res) => {
+    const projects =
+      await projectServices
+        .getAllProjects();
 
-  return res.status(200).json({
-    success: true,
-    message: "Projects fetched successfully",
-    data: { projects },
-  });
-});
+    const safeProjects =
+      buildSafeProjectList(
+        projects,
+      );
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        "Projects fetched successfully",
+
+      data: {
+        projects:
+          safeProjects,
+      },
+    });
+  },
+);
 
 //assignSuperwiser
 export const assignSupervisor = asyncHandler(async (req, res, next) => {
@@ -268,6 +286,7 @@ export const getDashboardData = asyncHandler(async (req, res, next) => {
   });
 });
 
+//get single Project
 export const getProject = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
   const project = await projectServices.getProjectById(id);
@@ -290,10 +309,20 @@ export const getProject = asyncHandler(async (req, res, next) => {
   }
   return res.status(200).json({
     success: true,
-    data: { project },
+
+    message:
+      "Project fetched successfully",
+
+    data: {
+      project:
+        buildSafeProjectResponse(
+          project,
+        ),
+    },
   });
 });
 
+//update Project
 export const updateProjectStatus = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
   const updatedData = req.body;
@@ -326,7 +355,15 @@ export const updateProjectStatus = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    message: "Project status updated successfully",
-    data: { project: updateProject },
+
+    message:
+      "Project status updated successfully",
+
+    data: {
+      project:
+        buildSafeProjectResponse(
+          updateProject,
+        ),
+    },
   });
 });

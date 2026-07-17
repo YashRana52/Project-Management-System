@@ -1,6 +1,9 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { axiosInstance } from "../../lib/axios";
 import { toast } from "react-toastify";
+export {
+  downloadProjectFile as downloadFile,
+} from "../thunks/fileThunks";
 
 export const submitProjectProposal = createAsyncThunk(
   "student/submitProjectproposal",
@@ -157,42 +160,7 @@ export const fetchDashboardStats = createAsyncThunk(
     }
   },
 );
-export const downloadFile = createAsyncThunk(
-  "student/downloadFile",
-  async ({ projectId, fileId, originalName }, { rejectWithValue }) => {
-    try {
-      const res = await axiosInstance.get(
-        `/student/download/${projectId}/${fileId}`,
-        {
-          responseType: "blob",
-        },
-      );
 
-      const blob = new Blob([res.data], {
-        type: res.headers["content-type"],
-      });
-
-      const url = window.URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", originalName || "file");
-
-      document.body.appendChild(link);
-      link.click();
-
-      // cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      return true;
-    } catch (error) {
-      return rejectWithValue(
-        error?.response?.data?.message || "Failed to download file",
-      );
-    }
-  },
-);
 
 const studentSlice = createSlice({
   name: "student",

@@ -11,8 +11,20 @@ export const errorMiddleware = (err, req, res, next) => {
 
   // MongoDB duplicate key error
   if (err.code === 11000) {
-    const message = `Duplicate ${Object.keys(err.keyValue)} entered`;
-    err = new ErrorHandler(message, 400);
+    const duplicateField =
+      Object.keys(
+        err.keyValue || {},
+      )[0] || "field";
+
+    const message =
+      duplicateField === "email"
+        ? "A user with this email already exists"
+        : `${duplicateField} already exists`;
+
+    err = new ErrorHandler(
+      message,
+      409,
+    );
   }
 
   // JWT invalid
@@ -35,8 +47,8 @@ export const errorMiddleware = (err, req, res, next) => {
 
   const errorMessage = err.errors
     ? Object.values(err.errors)
-        .map((val) => val.message)
-        .join(", ")
+      .map((val) => val.message)
+      .join(", ")
     : err.message;
 
   return res.status(err.statusCode).json({

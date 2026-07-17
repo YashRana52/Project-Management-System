@@ -58,7 +58,10 @@ export const acceptRequest = async (requestId, supervisorId) => {
 
   // Capacity check
   if (!request.supervisor.hasCapacity()) {
-    throw new Error("Supervisor has reached max student limit");
+    throw new ErrorHandler(
+      "Supervisor has reached maximum student capacity",
+      409,
+    );
   }
 
   //  Update request status

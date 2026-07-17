@@ -1,13 +1,10 @@
 import User from "../models/user.js";
-
+//create user
 export const createUser = async (userData) => {
-  try {
-    const user = new User(userData);
-    return await user.save();
-  } catch (error) {
-    throw new Error(`Error creating user:${error.message}`);
-  }
+  return await User.create(userData);
 };
+
+// update user
 export const updateUser = async (id, updateData) => {
   try {
     return await User.findByIdAndUpdate(id, updateData, {
@@ -18,6 +15,7 @@ export const updateUser = async (id, updateData) => {
     throw new Error(`Error updatinguser:${error.message}`);
   }
 };
+//get user by id
 export const getUserById = async (id) => {
   try {
     return await User.findById(id).select(
@@ -27,6 +25,7 @@ export const getUserById = async (id) => {
     throw new Error(`ErrorfindingUser:${error.message}`);
   }
 };
+//delete user
 export const deleteUser = async (id) => {
   try {
     const user = await User.findById(id);
@@ -40,6 +39,7 @@ export const deleteUser = async (id) => {
   }
 };
 
+//get all users
 export const getAllUsers = async () => {
   const query = { role: { $ne: "Admin" } };
 
@@ -58,6 +58,7 @@ export const getAllUsers = async () => {
   return { users };
 };
 
+//assign supervisor directly
 export const assignSupervisorDirectly = async (studentId, supervisorId) => {
   const student = await User.findOne({ _id: studentId, role: "Student" });
   const supervisor = await User.findOne({ _id: supervisorId, role: "Teacher" });
@@ -67,7 +68,10 @@ export const assignSupervisorDirectly = async (studentId, supervisorId) => {
   }
 
   if (!supervisor.hasCapacity()) {
-    throw new Error("Supervisor has reached maximum capacity");
+    throw new ErrorHandler(
+      "Supervisor has reached maximum student capacity",
+      409,
+    );
   }
 
   // Assign supervisor to student and add student to supervisor's list

@@ -15,11 +15,9 @@ const PendingRequests = () => {
 
   const { list } = useSelector((state) => state.teacher);
 
-  const { authUser } = useSelector((state) => state.auth);
-
   useEffect(() => {
-    dispatch(getRequests(authUser._id));
-  }, [dispatch, authUser._id]);
+    dispatch(getRequests());
+  }, [dispatch]);
 
   const setLoading = (id, key, value) => {
     setLoadingMap((prev) => ({
@@ -169,15 +167,14 @@ const PendingRequests = () => {
 
                         <span
                           className={`px-2 py-0.5 text-xs rounded-full font-medium
-    ${
-      req.status === "pending"
-        ? "bg-yellow-100 text-yellow-700"
-        : req.status === "approved"
-          ? "bg-green-100 text-green-700"
-          : req.status === "completed"
-            ? "bg-blue-100 text-blue-700"
-            : "bg-red-100 text-red-700"
-    }`}
+    ${req.status === "pending"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : req.status === "approved"
+                                ? "bg-green-100 text-green-700"
+                                : req.status === "completed"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-red-100 text-red-700"
+                            }`}
                         >
                           {req.status.charAt(0).toUpperCase() +
                             req.status.slice(1)}
@@ -214,11 +211,10 @@ const PendingRequests = () => {
                           onClick={() => handleAccept(req)}
                           disabled={lm?.accepting || !canAccept}
                           className={`px-4 py-1.5 text-sm rounded-lg font-medium transition-colors duration-200
-                  ${
-                    canAccept
-                      ? "bg-green-600 hover:bg-green-700 text-white"
-                      : "bg-gray-300 text-white cursor-not-allowed"
-                  }`}
+                  ${canAccept
+                              ? "bg-green-600 hover:bg-green-700 text-white"
+                              : "bg-gray-300 text-white cursor-not-allowed"
+                            }`}
                         >
                           {lm?.accepting ? "Accepting..." : "Accept"}
                         </button>
@@ -228,11 +224,10 @@ const PendingRequests = () => {
                           onClick={() => handleReject(req)}
                           disabled={lm?.rejecting || !canReject}
                           className={`px-4 py-1.5 text-sm rounded-lg font-medium transition-colors duration-200
-                  ${
-                    canReject
-                      ? "bg-red-600 hover:bg-red-700 text-white"
-                      : "bg-gray-300 text-white cursor-not-allowed"
-                  }`}
+                  ${canReject
+                              ? "bg-red-600 hover:bg-red-700 text-white"
+                              : "bg-gray-300 text-white cursor-not-allowed"
+                            }`}
                         >
                           {lm?.rejecting ? "Rejecting..." : "Reject"}
                         </button>

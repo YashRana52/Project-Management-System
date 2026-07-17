@@ -15,6 +15,9 @@ import {
   getProject,
   rejectProject,
 } from "../../store/slices/adminSlice";
+import {
+  downloadProjectFile,
+} from "../../store/thunks/fileThunks";
 
 const ProjectsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -22,6 +25,10 @@ const ProjectsPage = () => {
   const [filterSupervisor, setFilterSupervisor] = useState("all");
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [reportSearch, setReportSearch] = useState("");
+  const [
+    downloadingFileKey,
+    setDownloadingFileKey,
+  ] = useState(null);
 
   const [showViewModal, setShowViewModal] = useState(false);
 
@@ -66,16 +73,30 @@ const ProjectsPage = () => {
   });
 
   const files = useMemo(() => {
-    return (projects || []).flatMap((p) =>
-      (p.files || []).map((f) => ({
-        projectId: p._id,
-        fileId: f._id,
-        fileUrl: f.fileUrl,
-        originalName: f.originalName,
-        uploadedAt: f.uploadedAt,
-        projectTitle: p.title,
-        studentName: p.student?.name,
-      })),
+    return (projects || []).flatMap(
+      (project) =>
+        (project.files || []).map(
+          (file) => ({
+            projectId:
+              project._id,
+
+            fileId:
+              file._id,
+
+            originalName:
+              file.originalName,
+
+            uploadedAt:
+              file.uploadedAt,
+
+            projectTitle:
+              project.title,
+
+            studentName:
+              project.student?.name ||
+              "Unknown student",
+          }),
+        ),
     );
   }, [projects]);
 
@@ -90,26 +111,64 @@ const ProjectsPage = () => {
     return matchesName;
   });
 
-  const handleDownloadFile = (file) => {
-    if (!file?.fileUrl) {
-      toast.error("File URL not found");
+  const handleDownloadFile = async (
+    file,
+    fallbackProjectId = null,
+  ) => {
+    const projectId =
+      file?.projectId ||
+      fallbackProjectId ||
+      currentProject?._id;
+
+    const fileId =
+      file?.fileId ||
+      file?._id;
+
+    if (!projectId || !fileId) {
+      toast.error(
+        "Project or file information is missing",
+      );
+
       return;
     }
 
-    const downloadUrl = file.fileUrl.includes("/upload/")
-      ? file.fileUrl.replace("/upload/", "/upload/fl_attachment/")
-      : file.fileUrl;
+    const downloadKey =
+      `${projectId}:${fileId}`;
 
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = file.originalName || "file";
-    link.target = "_blank";
+    if (
+      downloadingFileKey ===
+      downloadKey
+    ) {
+      return;
+    }
 
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    setDownloadingFileKey(
+      downloadKey,
+    );
 
-    toast.success("Download started");
+    try {
+      await dispatch(
+        downloadProjectFile({
+          projectId,
+          fileId,
+
+          originalName:
+            file.originalName,
+        }),
+      ).unwrap();
+
+      toast.success(
+        "Download started",
+      );
+    } catch (error) {
+      toast.error(
+        typeof error === "string"
+          ? error
+          : "Failed to download file",
+      );
+    } finally {
+      setDownloadingFileKey(null);
+    }
   };
 
   const handleStatusChange = async (projectId, newStatus) => {
@@ -315,13 +374,12 @@ const ProjectsPage = () => {
                       {/* Status */}
                       <td className="px-6 py-4">
                         <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            project.status === "approved"
-                              ? "bg-green-100 text-green-800"
-                              : project.status === "rejected"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-yellow-100 text-yellow-800"
-                          }`}
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${project.status === "approved"
+                            ? "bg-green-100 text-green-800"
+                            : project.status === "rejected"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
+                            }`}
                         >
                           {project.status}
                         </span>
@@ -439,13 +497,12 @@ const ProjectsPage = () => {
                       Status
                     </label>
                     <div
-                      className={`inline-block px-3 py-1 rounded-full text-sm font-semibold capitalize ${
-                        currentProject.status === "approved"
-                          ? "bg-green-100 text-green-800"
-                          : currentProject.status === "rejected"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                      }`}
+                      className={`inline-block px-3 py-1 rounded-full text-sm font-semibold capitalize ${currentProject.status === "approved"
+                        ? "bg-green-100 text-green-800"
+                        : currentProject.status === "rejected"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-yellow-100 text-yellow-800"
+                        }`}
                     >
                       {currentProject?.status || "-"}
                     </div>
@@ -501,7 +558,7 @@ const ProjectsPage = () => {
                     <div className="space-y-2">
                       {currentProject.files.map((file) => (
                         <div
-                          key={file._id || file.fileUrl}
+                          key={file._id}
                           className="flex items-center justify-between p-3 bg-slate-50 rounded-lg shadow-sm hover:shadow-md transition"
                         >
                           <div className="flex items-center space-x-3">
@@ -516,10 +573,26 @@ const ProjectsPage = () => {
                             </div>
                           </div>
                           <button
-                            onClick={() => handleDownloadFile(file)}
-                            className="btn-outline btn-small px-3 py-1 rounded-lg text-sm hover:bg-slate-100 transition"
+                            disabled={
+                              downloadingFileKey ===
+                              `${currentProject._id}:${file._id}`
+                            }
+                            onClick={() =>
+                              handleDownloadFile(
+                                file,
+                                currentProject._id,
+                              )
+                            }
+                            className={`btn-outline btn-small px-3 py-1 rounded-lg text-sm transition ${downloadingFileKey ===
+                              `${currentProject._id}:${file._id}`
+                              ? "opacity-50 cursor-not-allowed"
+                              : "hover:bg-slate-100"
+                              }`}
                           >
-                            Download
+                            {downloadingFileKey ===
+                              `${currentProject._id}:${file._id}`
+                              ? "Downloading..."
+                              : "Download"}
                           </button>
                         </div>
                       ))}
@@ -577,10 +650,23 @@ const ProjectsPage = () => {
                           </div>
                         </div>
                         <button
-                          onClick={() => handleDownloadFile(f)}
-                          className="btn-outline btn-small"
+                          disabled={
+                            downloadingFileKey ===
+                            `${f.projectId}:${f.fileId}`
+                          }
+                          onClick={() =>
+                            handleDownloadFile(f)
+                          }
+                          className={`btn-outline btn-small ${downloadingFileKey ===
+                              `${f.projectId}:${f.fileId}`
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                            }`}
                         >
-                          Download
+                          {downloadingFileKey ===
+                            `${f.projectId}:${f.fileId}`
+                            ? "Downloading..."
+                            : "Download"}
                         </button>
                       </div>
                     );

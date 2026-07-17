@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  ArrowDownToLine,
+
   FileArchive,
   FileIcon,
   FileSpreadsheet,
@@ -12,11 +12,32 @@ import {
 import { getFiles } from "../../store/slices/teacherSlice";
 import { toast } from "react-toastify";
 import { formatDateReadable } from "../../components/date/date";
+import {
+  downloadProjectFile, getFileResponseErrorMessage
+} from "../../store/thunks/fileThunks";
+import { axiosInstance } from "../../lib/axios";
+
+
+const PREVIEWABLE_FILE_TYPES =
+  new Set([
+    "pdf",
+
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "webp",
+  ]);
 
 const TeacherFiles = () => {
   const [viewMode, setViewMode] = useState("grid");
   const [filterType, setFilterType] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [downloadingFileId, setDownloadingFileId] = useState(null);
+  const [
+    previewingFileId,
+    setPreviewingFileId,
+  ] = useState(null);
 
   const dispatch = useDispatch();
   const filesFromStore = useSelector((state) => state.teacher.files) || [];
@@ -50,17 +71,32 @@ const TeacherFiles = () => {
 
     return {
       id: f._id,
-      name: f.originalName,
-      originalName: f.originalName,
-      fileUrl: f.fileUrl,
-      publicId: f.publicId,
-      type: type.toUpperCase(),
-      size: f?.size || "-",
-      student: f.studentName || "-",
-      uploadedAt: f.uploadedAt || f.createdAt,
+
+      name:
+        f.originalName,
+
+      originalName:
+        f.originalName,
+
+      type:
+        type.toUpperCase(),
+
+      size:
+        f?.size || "-",
+
+      student:
+        f.studentName || "-",
+
+      uploadedAt:
+        f.uploadedAt,
+
       category,
-      projectId: f.projectId,
-      fileId: f._id,
+
+      projectId:
+        f.projectId,
+
+      fileId:
+        f._id,
     };
   };
 
@@ -100,27 +136,57 @@ const TeacherFiles = () => {
     return matchesSearch && matchesType;
   });
 
-  const handleDownloadFile = (file) => {
-    if (!file?.fileUrl) {
-      toast.error("File URL not found");
-      return;
-    }
+  const handleDownloadFile =
+    async (file) => {
+      if (
+        !file?.projectId ||
+        !file?.fileId
+      ) {
+        toast.error(
+          "Project or file information is missing",
+        );
 
-    const downloadUrl = file.fileUrl.includes("/upload/")
-      ? file.fileUrl.replace("/upload/", "/upload/fl_attachment/")
-      : file.fileUrl;
+        return;
+      }
 
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = file.originalName || "file";
-    link.target = "_blank";
+      if (
+        downloadingFileId ===
+        file.fileId
+      ) {
+        return;
+      }
 
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      setDownloadingFileId(
+        file.fileId,
+      );
 
-    toast.success("Download started");
-  };
+      try {
+        await dispatch(
+          downloadProjectFile({
+            projectId:
+              file.projectId,
+
+            fileId:
+              file.fileId,
+
+            originalName:
+              file.originalName,
+          }),
+        ).unwrap();
+
+        toast.success(
+          "Download started",
+        );
+      } catch (error) {
+        toast.error(
+          typeof error === "string"
+            ? error
+            : "Failed to download file",
+        );
+      } finally {
+        setDownloadingFileId(null);
+      }
+    };
 
   const fileStats = [
     {
@@ -169,21 +235,139 @@ const TeacherFiles = () => {
   ];
 
   //  handle view file
-  const handleViewFile = (file) => {
-    if (!file?.fileUrl) {
-      toast.error("File URL not found");
+  const handleViewFile = async (file) => {
+    if (
+      !file?.projectId ||
+      !file?.fileId
+    ) {
+      toast.error(
+        "Project or file information is missing",
+      );
+
       return;
     }
 
-    // direct open (no download)
-    window.open(file.fileUrl, "_blank", "noopener,noreferrer");
+    if (
+      previewingFileId ===
+      file.fileId
+    ) {
+      return;
+    }
+
+    /*
+     * Window click ke turant baad open kar rahe hain.
+     * Agar API complete hone ke baad window.open karenge,
+     * browser ise popup samajh kar block kar sakta hai.
+     */
+    const previewWindow =
+      window.open(
+        "",
+        "_blank",
+      );
+
+    if (!previewWindow) {
+      toast.error(
+        "Preview popup was blocked by the browser",
+      );
+
+      return;
+    }
+
+    previewWindow.document.title =
+      "Loading preview";
+
+    previewWindow.document.body.innerHTML =
+      `
+        <div style="
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: Arial, sans-serif;
+        ">
+          Loading file preview...
+        </div>
+      `;
+
+    /*
+     * New tab ko original application window se
+     * JavaScript access nahi dena.
+     */
+    previewWindow.opener = null;
+
+    setPreviewingFileId(
+      file.fileId,
+    );
+
+    try {
+      const response =
+        await axiosInstance.get(
+          `/project/${file.projectId}/files/${file.fileId}/preview`,
+
+          {
+            responseType: "blob",
+          },
+        );
+
+      const contentType =
+        response.headers[
+        "content-type"
+        ] ||
+        response.data?.type ||
+        "application/octet-stream";
+
+      const previewBlob =
+        response.data instanceof Blob &&
+          response.data.type
+          ? response.data
+          : new Blob(
+            [response.data],
+            {
+              type: contentType,
+            },
+          );
+
+      const previewUrl =
+        window.URL.createObjectURL(
+          previewBlob,
+        );
+
+      previewWindow.location.replace(
+        previewUrl,
+      );
+
+      /*
+       * New tab ko Blob read karne ke liye time mile.
+       * Iske baad temporary browser URL release hoga.
+       */
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(
+          previewUrl,
+        );
+      }, 60_000);
+    } catch (error) {
+      previewWindow.close();
+
+      const message =
+        await getFileResponseErrorMessage(
+          error,
+          "Failed to preview file",
+        );
+
+      toast.error(message);
+    } finally {
+      setPreviewingFileId(null);
+    }
   };
 
   const canViewFile = (file) => {
-    if (!file?.type) return false;
+    if (!file?.type) {
+      return false;
+    }
 
-    const nonViewable = ["zip", "rar", "7z"];
-    return !nonViewable.includes(file.type.toLowerCase());
+    return PREVIEWABLE_FILE_TYPES.has(
+      file.type.toLowerCase(),
+    );
   };
 
   return (
@@ -232,22 +416,20 @@ const TeacherFiles = () => {
               <div className="flex items-center gap-2 self-end md:self-auto">
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded-lg transition ${
-                    viewMode === "grid"
-                      ? "bg-blue-100 text-blue-600"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
+                  className={`p-2 rounded-lg transition ${viewMode === "grid"
+                    ? "bg-blue-100 text-blue-600"
+                    : "text-slate-600 hover:bg-slate-100"
+                    }`}
                 >
                   <LayoutGrid className="w-5 h-5" />
                 </button>
 
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`p-2 rounded-lg transition ${
-                    viewMode === "list"
-                      ? "bg-blue-100 text-blue-600"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
+                  className={`p-2 rounded-lg transition ${viewMode === "list"
+                    ? "bg-blue-100 text-blue-600"
+                    : "text-slate-600 hover:bg-slate-100"
+                    }`}
                 >
                   <List className="w-5 h-5" />
                 </button>
@@ -313,20 +495,45 @@ const TeacherFiles = () => {
                 <div className="flex gap-2">
                   {canViewFile(file) && (
                     <button
-                      onClick={() => handleViewFile(file)}
-                      className="w-full rounded-xl border border-slate-300 text-slate-700 py-2 text-sm
-       hover:bg-slate-100 transition"
+                      disabled={
+                        previewingFileId ===
+                        file.fileId
+                      }
+                      onClick={() =>
+                        handleViewFile(file)
+                      }
+                      className={`w-full rounded-xl border py-2 text-sm transition ${previewingFileId ===
+                        file.fileId
+                        ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                        : "border-slate-300 text-slate-700 hover:bg-slate-100"
+                        }`}
                     >
-                      👁 View
+                      {previewingFileId ===
+                        file.fileId
+                        ? "Opening..."
+                        : "👁 View"}
                     </button>
                   )}
 
                   <button
-                    onClick={() => handleDownloadFile(file)}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600
-     text-white py-2 text-sm font-medium hover:bg-blue-700 transition"
+                    disabled={
+                      downloadingFileId ===
+                      file.fileId
+                    }
+                    onClick={() =>
+                      handleDownloadFile(file)
+                    }
+                    className={`w-full flex items-center justify-center gap-2 rounded-xl
+    text-white py-2 text-sm font-medium transition ${downloadingFileId ===
+                        file.fileId
+                        ? "bg-blue-400 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700"
+                      }`}
                   >
-                    ⬇ Download
+                    {downloadingFileId ===
+                      file.fileId
+                      ? "Downloading..."
+                      : "⬇ Download"}
                   </button>
                 </div>
 
@@ -390,19 +597,45 @@ const TeacherFiles = () => {
                       <td className="px-5 py-4 flex gap-2">
                         {canViewFile(file) && (
                           <button
-                            onClick={() => handleViewFile(file)}
-                            className="px-3 py-2 rounded-lg border text-sm hover:bg-slate-100"
+                            disabled={
+                              previewingFileId ===
+                              file.fileId
+                            }
+                            onClick={() =>
+                              handleViewFile(file)
+                            }
+                            className={`px-3 py-2 rounded-lg border text-sm ${previewingFileId ===
+                              file.fileId
+                              ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                              : "hover:bg-slate-100"
+                              }`}
                           >
-                            👁 View
+                            {previewingFileId ===
+                              file.fileId
+                              ? "Opening..."
+                              : "👁 View"}
                           </button>
                         )}
 
                         <button
-                          onClick={() => handleDownloadFile(file)}
-                          className="px-4 py-2 rounded-lg text-sm font-semibold
-     bg-blue-600 text-white hover:bg-blue-700"
+                          disabled={
+                            downloadingFileId ===
+                            file.fileId
+                          }
+                          onClick={() =>
+                            handleDownloadFile(file)
+                          }
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold
+    text-white ${downloadingFileId ===
+                              file.fileId
+                              ? "bg-blue-400 cursor-not-allowed"
+                              : "bg-blue-600 hover:bg-blue-700"
+                            }`}
                         >
-                          ⬇ Download
+                          {downloadingFileId ===
+                            file.fileId
+                            ? "Downloading..."
+                            : "⬇ Download"}
                         </button>
                       </td>
                     </tr>
