@@ -16,7 +16,7 @@ const app = express();
 // CORS
 app.use(
   cors({
-<<<<<<< HEAD
+
     origin: process.env.FRONTEND_URL,
 =======
     origin: "https://project-management-system-client-omega.vercel.app",
